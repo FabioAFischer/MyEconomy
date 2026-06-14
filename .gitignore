@@ -11,3 +11,8 @@ yarn-error.log*
 *.mobileprovision
 *.orig.*
 web-build/
+
+server/.env
+.env
+
+.env.docker

@@ -20,6 +20,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, "SignUp">;
 
 export default function SignUpScreen({ navigation }: Props) {
   const signup = useAuthStore((state) => state.signup);
+  const isLoading = useAuthStore((state) => state.isLoading);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,8 +52,14 @@ export default function SignUpScreen({ navigation }: Props) {
     setShowPicker(false);
   }
 
-  function handleSignup() {
-    const result = signup({ name, email, password, confirmPassword, birthDate });
+  async function handleSignup() {
+    const result = await signup({
+      name,
+      email,
+      password,
+      confirmPassword,
+      birthDate,
+    });
 
     if (!result.success) {
       Alert.alert("Não foi possível cadastrar", result.error);
@@ -141,7 +148,7 @@ export default function SignUpScreen({ navigation }: Props) {
             </>
           )}
 
-          <Button title="Cadastrar" onPress={handleSignup} />
+          <Button title="Cadastrar" onPress={handleSignup} loading={isLoading} />
           <Button
             title="Voltar para login"
             onPress={() => navigation.goBack()}

@@ -39,7 +39,7 @@ export default function ExpensesScreen() {
     setValueError("");
   }
 
-  function handleSave() {
+  async function handleSave() {
     let hasError = false;
     setDescriptionError("");
     setValueError("");
@@ -55,16 +55,22 @@ export default function ExpensesScreen() {
     }
     if (hasError) return;
 
-    if (editingId) {
-      updateExpense(editingId, { description: description.trim(), value: parsed });
-    } else {
-      addExpense({
-        userId: user!.id,
-        description: description.trim(),
-        value: parsed,
-        monthRef: selectedMonth,
-      });
+    const result = editingId
+      ? await updateExpense(editingId, {
+          description: description.trim(),
+          value: parsed,
+        })
+      : await addExpense({
+          description: description.trim(),
+          value: parsed,
+          monthRef: selectedMonth,
+        });
+
+    if (!result.success) {
+      Alert.alert("Não foi possível salvar", result.error);
+      return;
     }
+
     resetForm();
   }
 
@@ -86,7 +92,12 @@ export default function ExpensesScreen() {
         {
           text: "Excluir",
           style: "destructive",
-          onPress: () => deleteExpense(id),
+          onPress: async () => {
+            const result = await deleteExpense(id);
+            if (!result.success) {
+              Alert.alert("Não foi possível excluir", result.error);
+            }
+          },
         },
       ]
     );
