@@ -28,7 +28,7 @@ export default function ExpensesScreen() {
   const deleteExpense = useFinanceStore((state) => state.deleteExpense);
 
   const currentMonthRef = getCurrentMonthRef();
-  const isCurrentMonth = selectedMonth === currentMonthRef;
+  const isPastMonth = selectedMonth < currentMonthRef;
   const totalMonth = expenses.reduce((sum, e) => sum + e.value, 0);
 
   function resetForm() {
@@ -104,7 +104,7 @@ export default function ExpensesScreen() {
         Cadastre e acompanhe as despesas de cada mês.
       </Text>
 
-      {isCurrentMonth && (
+      {!isPastMonth && (
         <Card className="mt-8">
           <Text className="mb-4 text-base font-semibold text-slate-950">
             {editingId ? "Editar despesa" : "Nova despesa"}
@@ -148,7 +148,7 @@ export default function ExpensesScreen() {
           <Text className="text-base font-semibold text-slate-950">Histórico</Text>
           <MonthNavigator
             monthRef={selectedMonth}
-            maxMonthRef={currentMonthRef}
+            maxMonthRef={addMonths(currentMonthRef, 12)}
             onPrev={() => setSelectedMonth(prevMonth(selectedMonth))}
             onNext={() => setSelectedMonth(nextMonth(selectedMonth))}
           />
@@ -177,7 +177,7 @@ export default function ExpensesScreen() {
               <ExpenseItem
                 key={expense.id}
                 expense={expense}
-                canModify={isCurrentMonth}
+                canModify={!isPastMonth}
                 onEdit={() => handleEdit(expense)}
                 onDelete={() => handleDelete(expense.id)}
               />
@@ -273,6 +273,12 @@ function MonthNavigator({
       </TouchableOpacity>
     </View>
   );
+}
+
+function addMonths(monthRef: string, n: number): string {
+  const [y, m] = monthRef.split("-").map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function getCurrentMonthRef() {

@@ -8,6 +8,7 @@ type SignupData = {
   name: string;
   email: string;
   password: string;
+  confirmPassword: string;
   birthDate: string;
 };
 
@@ -34,13 +35,14 @@ export const useAuthStore = create<AuthState>()(
       currentUser: null,
       hasHydrated: false,
 
-      signup: ({ name, email, password, birthDate }) => {
+      signup: ({ name, email, password, confirmPassword, birthDate }) => {
         const normalizedEmail = normalizeEmail(email);
 
         if (
           !isRequired(name) ||
           !isRequired(email) ||
           !isRequired(password) ||
+          !isRequired(confirmPassword) ||
           !isRequired(birthDate)
         ) {
           return { success: false, error: "Preencha todos os campos." };
@@ -48,6 +50,10 @@ export const useAuthStore = create<AuthState>()(
 
         if (!isValidEmail(normalizedEmail)) {
           return { success: false, error: "Informe um e-mail válido." };
+        }
+
+        if (password !== confirmPassword) {
+          return { success: false, error: "As senhas não coincidem." };
         }
 
         const emailAlreadyExists = get().users.some(

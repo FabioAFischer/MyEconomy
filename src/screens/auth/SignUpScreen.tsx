@@ -14,6 +14,7 @@ export default function SignUpScreen({ navigation }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [birthDate, setBirthDate] = useState("");
 
   function handleSignup() {
@@ -22,7 +23,7 @@ export default function SignUpScreen({ navigation }: Props) {
       return;
     }
 
-    const result = signup({ name, email, password, birthDate });
+    const result = signup({ name, email, password, confirmPassword, birthDate });
 
     if (!result.success) {
       Alert.alert("Não foi possível cadastrar", result.error);
@@ -67,6 +68,13 @@ export default function SignUpScreen({ navigation }: Props) {
             placeholder="Crie uma senha"
             secureTextEntry
             value={password}
+          />
+          <Input
+            label="Confirmar senha"
+            onChangeText={setConfirmPassword}
+            placeholder="Repita a senha"
+            secureTextEntry
+            value={confirmPassword}
           />
           <Input
             keyboardType="numbers-and-punctuation"
