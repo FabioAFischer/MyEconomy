@@ -1,9 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import Button from "../../components/Button";
 import Card from "../../components/Card";
 import EmptyState from "../../components/EmptyState";
 import ProgressBar from "../../components/ProgressBar";
+import type { AppTabParamList } from "../../navigation/AppTabs";
 import { useAuthStore } from "../../stores/authStore";
 import { useFinanceStore } from "../../stores/financeStore";
 import { MonthlySummary } from "../../types/Finance";
@@ -66,19 +70,27 @@ export default function HomeScreen() {
               </Text>
               <Text className="mt-1 text-sm text-slate-500">
                 {summary.limit === null
-                  ? "Cadastre um limite para acompanhar."
+                  ? summary.totalExpenses > 0
+                    ? "Despesas registradas — sem limite definido."
+                    : "Cadastre um limite para acompanhar."
                   : `${progressPercentage}% utilizado`}
               </Text>
             </View>
             <View
               className={`rounded-lg px-3 py-2 ${
-                summary.status === "over-limit" ? "bg-red-50" : "bg-brand-50"
+                summary.status === "over-limit"
+                  ? "bg-red-50"
+                  : summary.status === "without-limit"
+                  ? "bg-slate-100"
+                  : "bg-brand-50"
               }`}
             >
               <Text
                 className={`text-sm font-semibold ${
                   summary.status === "over-limit"
                     ? "text-red-600"
+                    : summary.status === "without-limit"
+                    ? "text-slate-500"
                     : "text-brand-700"
                 }`}
               >
@@ -204,26 +216,33 @@ function OutcomeCard({ summary }: { summary: MonthlySummary }) {
   const saved = summary.status === "saved";
   return (
     <Card>
-      <View className="items-center py-4">
+      <View className="items-center py-6">
         <View
-          className={`mb-4 h-16 w-16 items-center justify-center rounded-full ${
+          className={`mb-5 h-36 w-36 items-center justify-center rounded-full ${
             saved ? "bg-brand-50" : "bg-red-50"
           }`}
         >
           <Ionicons
-            name={saved ? "trophy-outline" : "trending-up-outline"}
-            size={32}
+            name={saved ? "happy-outline" : "sad-outline"}
+            size={80}
             color={saved ? "#059669" : "#dc2626"}
           />
         </View>
         <Text
-          className={`text-lg font-bold ${
+          className={`text-xl font-bold ${
             saved ? "text-brand-700" : "text-red-600"
           }`}
         >
-          {saved ? "Parabéns! Você economizou!" : "Você passou do limite"}
+          {saved ? "Parabéns!" : "Não foi dessa vez..."}
         </Text>
-        <Text className="mt-2 text-center text-sm leading-5 text-slate-500">
+        <Text
+          className={`mt-1 text-base font-semibold ${
+            saved ? "text-brand-600" : "text-red-500"
+          }`}
+        >
+          {saved ? "Você economizou neste mês!" : "Você passou do limite"}
+        </Text>
+        <Text className="mt-3 px-4 text-center text-sm leading-5 text-slate-500">
           {saved
             ? `Você ficou ${formatCurrency(summary.balance ?? 0)} abaixo do limite. Continue assim!`
             : `Você gastou ${formatCurrency(
@@ -242,6 +261,8 @@ function StatusCard({
   summary: MonthlySummary;
   isPastMonth: boolean;
 }) {
+  const navigation = useNavigation<BottomTabNavigationProp<AppTabParamList>>();
+
   if (summary.status === "without-limit") {
     return (
       <Card>
@@ -258,6 +279,14 @@ function StatusCard({
                 ? "Nenhum limite foi cadastrado para este mês."
                 : "Cadastre um limite mensal para saber se você economizou ou passou do valor planejado."}
             </Text>
+            {!isPastMonth && (
+              <View className="mt-3">
+                <Button
+                  title="Cadastrar limite"
+                  onPress={() => navigation.navigate("Limit")}
+                />
+              </View>
+            )}
           </View>
         </View>
       </Card>
