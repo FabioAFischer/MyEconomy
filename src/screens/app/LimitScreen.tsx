@@ -24,8 +24,8 @@ export default function LimitScreen() {
   const deleteMonthlyLimit = useFinanceStore((state) => state.deleteMonthlyLimit);
 
   const currentMonthRef = getCurrentMonthRef();
-  const isCurrentMonth = selectedMonth === currentMonthRef;
-  const showForm = isCurrentMonth && (!existingLimit || isEditing);
+  const isPastMonth = selectedMonth < currentMonthRef;
+  const showForm = !isPastMonth && (!existingLimit || isEditing);
 
   function resetForm() {
     setIsEditing(false);
@@ -126,7 +126,7 @@ export default function LimitScreen() {
           <Text className="text-base font-semibold text-slate-950">Consulta</Text>
           <MonthNavigator
             monthRef={selectedMonth}
-            maxMonthRef={currentMonthRef}
+            maxMonthRef={addMonths(currentMonthRef, 12)}
             onPrev={() => setSelectedMonth(prevMonth(selectedMonth))}
             onNext={() => setSelectedMonth(nextMonth(selectedMonth))}
           />
@@ -146,7 +146,7 @@ export default function LimitScreen() {
                   {formatCurrency(existingLimit.value)}
                 </Text>
               </View>
-              {isCurrentMonth && (
+              {!isPastMonth && (
                 <View className="flex-row gap-2">
                   <TouchableOpacity
                     className="h-9 w-9 items-center justify-center rounded-lg bg-slate-100"
@@ -166,7 +166,7 @@ export default function LimitScreen() {
               )}
             </View>
           </Card>
-        ) : !isCurrentMonth ? (
+        ) : !existingLimit ? (
           <Card>
             <Text className="text-center text-sm text-slate-400">
               Nenhum limite encontrado
@@ -214,6 +214,12 @@ function MonthNavigator({
       </TouchableOpacity>
     </View>
   );
+}
+
+function addMonths(monthRef: string, n: number): string {
+  const [y, m] = monthRef.split("-").map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function getCurrentMonthRef() {

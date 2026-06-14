@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ScrollView, Text, View } from "react-native";
+import { useState } from "react";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Card from "../../components/Card";
 import EmptyState from "../../components/EmptyState";
 import ProgressBar from "../../components/ProgressBar";
@@ -9,11 +10,13 @@ import { MonthlySummary } from "../../types/Finance";
 
 export default function HomeScreen() {
   const user = useAuthStore((state) => state.getCurrentUser());
-  const monthRef = getCurrentMonthRef();
+  const currentMonthRef = getCurrentMonthRef();
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthRef);
+  const isPastMonth = selectedMonth < currentMonthRef;
+
   const summary = useFinanceStore((state) =>
-    state.getMonthlySummary(user?.id ?? "", monthRef)
+    state.getMonthlySummary(user?.id ?? "", selectedMonth)
   );
-  const status = getStatusContent(summary);
   const progressPercentage = Math.round(summary.progress * 100);
 
   return (
@@ -22,11 +25,21 @@ export default function HomeScreen() {
       contentContainerClassName="px-6 pb-8 pt-16"
       showsVerticalScrollIndicator={false}
     >
-      <Text className="text-3xl font-bold text-slate-950">Home</Text>
-      <Text className="mt-3 text-base leading-6 text-slate-600">
-        Visão geral financeira de {getFirstName(user?.name)} em{" "}
-        {formatMonth(monthRef)}.
-      </Text>
+      <View className="flex-row items-start justify-between">
+        <View className="flex-1 mr-4">
+          <Text className="text-3xl font-bold text-slate-950">Home</Text>
+          <Text className="mt-3 text-base leading-6 text-slate-600">
+            Visão geral de {getFirstName(user?.name)} em{" "}
+            {formatMonth(selectedMonth)}.
+          </Text>
+        </View>
+        <MonthNavigator
+          monthRef={selectedMonth}
+          maxMonthRef={currentMonthRef}
+          onPrev={() => setSelectedMonth(prevMonth(selectedMonth))}
+          onNext={() => setSelectedMonth(nextMonth(selectedMonth))}
+        />
+      </View>
 
       <View className="mt-8 gap-4">
         <MonthlyTotalCard total={summary.totalExpenses} />
@@ -77,12 +90,11 @@ export default function HomeScreen() {
           <ProgressBar progress={summary.progress} status={summary.status} />
         </Card>
 
-        <StatusCard
-          color={status.color}
-          description={status.description}
-          icon={status.icon}
-          title={status.title}
-        />
+        {isPastMonth && summary.status !== "without-limit" ? (
+          <OutcomeCard summary={summary} />
+        ) : (
+          <StatusCard summary={summary} isPastMonth={isPastMonth} />
+        )}
 
         {summary.expensesCount === 0 ? (
           <EmptyState
@@ -96,12 +108,50 @@ export default function HomeScreen() {
             </Text>
             <Text className="mt-2 text-sm leading-5 text-slate-500">
               {summary.expensesCount} lançamento
-              {summary.expensesCount > 1 ? "s" : ""} no mês atual.
+              {summary.expensesCount > 1 ? "s" : ""} no mês.
             </Text>
           </Card>
         )}
       </View>
     </ScrollView>
+  );
+}
+
+type MonthNavigatorProps = {
+  monthRef: string;
+  maxMonthRef: string;
+  onPrev: () => void;
+  onNext: () => void;
+};
+
+function MonthNavigator({
+  monthRef,
+  maxMonthRef,
+  onPrev,
+  onNext,
+}: MonthNavigatorProps) {
+  const canGoNext = monthRef < maxMonthRef;
+  return (
+    <View className="flex-row items-center gap-1 mt-1">
+      <TouchableOpacity
+        className="h-8 w-8 items-center justify-center rounded-lg bg-slate-100"
+        onPress={onPrev}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="chevron-back-outline" size={16} color="#475569" />
+      </TouchableOpacity>
+      <Text className="w-24 text-center text-xs font-medium text-slate-600">
+        {formatMonthNav(monthRef)}
+      </Text>
+      <TouchableOpacity
+        className={`h-8 w-8 items-center justify-center rounded-lg bg-slate-100 ${!canGoNext ? "opacity-30" : ""}`}
+        onPress={onNext}
+        disabled={!canGoNext}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="chevron-forward-outline" size={16} color="#475569" />
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -150,22 +200,102 @@ function MonthlyTotalCard({ total }: { total: number }) {
   );
 }
 
-type StatusCardProps = {
-  color: string;
-  description: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-};
+function OutcomeCard({ summary }: { summary: MonthlySummary }) {
+  const saved = summary.status === "saved";
+  return (
+    <Card>
+      <View className="items-center py-4">
+        <View
+          className={`mb-4 h-16 w-16 items-center justify-center rounded-full ${
+            saved ? "bg-brand-50" : "bg-red-50"
+          }`}
+        >
+          <Ionicons
+            name={saved ? "trophy-outline" : "trending-up-outline"}
+            size={32}
+            color={saved ? "#059669" : "#dc2626"}
+          />
+        </View>
+        <Text
+          className={`text-lg font-bold ${
+            saved ? "text-brand-700" : "text-red-600"
+          }`}
+        >
+          {saved ? "Parabéns! Você economizou!" : "Você passou do limite"}
+        </Text>
+        <Text className="mt-2 text-center text-sm leading-5 text-slate-500">
+          {saved
+            ? `Você ficou ${formatCurrency(summary.balance ?? 0)} abaixo do limite. Continue assim!`
+            : `Você gastou ${formatCurrency(
+                Math.abs(summary.balance ?? 0)
+              )} a mais do que o planejado. Tente melhorar no próximo mês!`}
+        </Text>
+      </View>
+    </Card>
+  );
+}
 
-function StatusCard({ color, description, icon, title }: StatusCardProps) {
+function StatusCard({
+  summary,
+  isPastMonth,
+}: {
+  summary: MonthlySummary;
+  isPastMonth: boolean;
+}) {
+  if (summary.status === "without-limit") {
+    return (
+      <Card>
+        <View className="flex-row">
+          <Ionicons name="alert-circle-outline" size={24} color="#64748b" />
+          <View className="ml-3 flex-1">
+            <Text className="text-base font-semibold text-slate-950">
+              {isPastMonth
+                ? "Nenhum progresso encontrado"
+                : "Ainda não há limite cadastrado"}
+            </Text>
+            <Text className="mt-1 text-sm leading-5 text-slate-500">
+              {isPastMonth
+                ? "Nenhum limite foi cadastrado para este mês."
+                : "Cadastre um limite mensal para saber se você economizou ou passou do valor planejado."}
+            </Text>
+          </View>
+        </View>
+      </Card>
+    );
+  }
+
+  if (summary.status === "over-limit") {
+    return (
+      <Card>
+        <View className="flex-row">
+          <Ionicons name="trending-up-outline" size={24} color="#dc2626" />
+          <View className="ml-3 flex-1">
+            <Text className="text-base font-semibold text-slate-950">
+              Você passou do limite
+            </Text>
+            <Text className="mt-1 text-sm leading-5 text-slate-500">
+              {`Você passou ${formatCurrency(
+                Math.abs(summary.balance ?? 0)
+              )} do limite deste mês.`}
+            </Text>
+          </View>
+        </View>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <View className="flex-row">
-        <Ionicons name={icon} size={24} color={color} />
+        <Ionicons name="checkmark-circle-outline" size={24} color="#059669" />
         <View className="ml-3 flex-1">
-          <Text className="text-base font-semibold text-slate-950">{title}</Text>
+          <Text className="text-base font-semibold text-slate-950">
+            Você está economizando
+          </Text>
           <Text className="mt-1 text-sm leading-5 text-slate-500">
-            {description}
+            {`Você economizou ${formatCurrency(
+              summary.balance ?? 0
+            )} em relação ao limite cadastrado.`}
           </Text>
         </View>
       </View>
@@ -174,10 +304,29 @@ function StatusCard({ color, description, icon, title }: StatusCardProps) {
 }
 
 function getCurrentMonthRef() {
-  const currentDate = new Date();
-  const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
-  return `${currentDate.getFullYear()}-${month}`;
+function prevMonth(monthRef: string): string {
+  const [y, m] = monthRef.split("-").map(Number);
+  const d = new Date(y, m - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function nextMonth(monthRef: string): string {
+  const [y, m] = monthRef.split("-").map(Number);
+  const d = new Date(y, m, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMonthNav(monthRef: string): string {
+  const months = [
+    "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+    "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+  ];
+  const [y, m] = monthRef.split("-");
+  return `${months[Number(m) - 1]}/${y}`;
 }
 
 function getFirstName(name?: string) {
@@ -194,41 +343,8 @@ function formatCurrency(value: number) {
 function formatMonth(monthRef: string) {
   const [year, month] = monthRef.split("-");
   const date = new Date(Number(year), Number(month) - 1, 1);
-
   return new Intl.DateTimeFormat("pt-BR", {
     month: "long",
     year: "numeric",
   }).format(date);
-}
-
-function getStatusContent(summary: MonthlySummary): StatusCardProps {
-  if (summary.status === "without-limit") {
-    return {
-      color: "#64748b",
-      description:
-        "Cadastre um limite mensal para saber se você economizou ou passou do valor planejado.",
-      icon: "alert-circle-outline",
-      title: "Ainda não há limite cadastrado",
-    };
-  }
-
-  if (summary.status === "over-limit") {
-    return {
-      color: "#dc2626",
-      description: `Você passou ${formatCurrency(
-        Math.abs(summary.balance ?? 0)
-      )} do limite deste mês.`,
-      icon: "trending-up-outline",
-      title: "Você passou do limite",
-    };
-  }
-
-  return {
-    color: "#059669",
-    description: `Você economizou ${formatCurrency(
-      summary.balance ?? 0
-    )} em relação ao limite cadastrado.`,
-    icon: "checkmark-circle-outline",
-    title: "Você economizou este mês",
-  };
 }
