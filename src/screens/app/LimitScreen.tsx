@@ -13,7 +13,9 @@ export default function LimitScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState("");
   const [valueError, setValueError] = useState("");
+  const [repeatUntil, setRepeatUntil] = useState<string | null>(null);
 
+  const monthlyLimits = useFinanceStore((state) => state.monthlyLimits);
   const existingLimit = useFinanceStore((state) =>
     state.monthlyLimits.find(
       (l) => l.userId === user?.id && l.monthRef === selectedMonth
@@ -31,6 +33,7 @@ export default function LimitScreen() {
     setIsEditing(false);
     setValue("");
     setValueError("");
+    setRepeatUntil(null);
   }
 
   function handleSave() {
@@ -43,6 +46,15 @@ export default function LimitScreen() {
 
     if (isEditing && existingLimit) {
       updateMonthlyLimit(existingLimit.id, parsed);
+    } else if (repeatUntil) {
+      getMonthRange(selectedMonth, repeatUntil).forEach((month) => {
+        const alreadyExists = monthlyLimits.some(
+          (l) => l.userId === user!.id && l.monthRef === month
+        );
+        if (!alreadyExists) {
+          addMonthlyLimit({ userId: user!.id, value: parsed, monthRef: month });
+        }
+      });
     } else {
       addMonthlyLimit({
         userId: user!.id,
@@ -104,6 +116,42 @@ export default function LimitScreen() {
               keyboardType="numeric"
               error={valueError}
             />
+            {!isEditing && (
+              <View>
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-sm font-medium text-slate-700">
+                    Repetir até um mês específico
+                  </Text>
+                  <TouchableOpacity
+                    className={`rounded-lg px-3 py-1.5 ${repeatUntil ? "bg-brand-600" : "bg-slate-100"}`}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      setRepeatUntil(repeatUntil ? null : nextMonth(selectedMonth))
+                    }
+                  >
+                    <Text
+                      className={`text-xs font-semibold ${repeatUntil ? "text-white" : "text-slate-600"}`}
+                    >
+                      {repeatUntil ? "Ativado" : "Ativar"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {repeatUntil && (
+                  <View className="mt-3 flex-row items-center justify-between">
+                    <Text className="text-sm text-slate-500">Até:</Text>
+                    <MonthNavigator
+                      monthRef={repeatUntil}
+                      maxMonthRef={addMonths(currentMonthRef, 12)}
+                      onPrev={() => {
+                        const prev = prevMonth(repeatUntil);
+                        if (prev >= selectedMonth) setRepeatUntil(prev);
+                      }}
+                      onNext={() => setRepeatUntil(nextMonth(repeatUntil))}
+                    />
+                  </View>
+                )}
+              </View>
+            )}
             <View className="flex-row gap-3">
               {isEditing && (
                 <View className="flex-1">
@@ -214,6 +262,16 @@ function MonthNavigator({
       </TouchableOpacity>
     </View>
   );
+}
+
+function getMonthRange(from: string, to: string): string[] {
+  const months: string[] = [];
+  let current = from;
+  while (current <= to) {
+    months.push(current);
+    current = nextMonth(current);
+  }
+  return months;
 }
 
 function addMonths(monthRef: string, n: number): string {
