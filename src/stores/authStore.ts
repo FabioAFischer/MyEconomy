@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { apiRequest, ApiError } from "../services/api";
 import { AuthResult, User } from "../types/User";
-import { isRequired, isValidEmail, normalizeEmail } from "../utils/validators";
 
 type SignupData = {
   name: string;
@@ -17,115 +17,107 @@ type SigninData = {
   password: string;
 };
 
+type AuthResponse = {
+  token: string;
+  user: User;
+};
+
+type UserResponse = {
+  user: User;
+};
+
 type AuthState = {
-  users: User[];
+  token: string | null;
   currentUser: User | null;
   hasHydrated: boolean;
-  signup: (data: SignupData) => AuthResult;
-  signin: (data: SigninData) => AuthResult;
+  isLoading: boolean;
+  initialize: () => Promise<void>;
+  signup: (data: SignupData) => Promise<AuthResult>;
+  signin: (data: SigninData) => Promise<AuthResult>;
   signout: () => void;
   getCurrentUser: () => User | null;
-  setHasHydrated: (value: boolean) => void;
 };
+
+function getErrorMessage(error: unknown) {
+  return error instanceof ApiError
+    ? error.message
+    : "Não foi possível concluir a operação.";
+}
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      users: [],
+      token: null,
       currentUser: null,
       hasHydrated: false,
+      isLoading: false,
 
-      signup: ({ name, email, password, confirmPassword, birthDate }) => {
-        const normalizedEmail = normalizeEmail(email);
+      initialize: async () => {
+        const token = get().token;
 
-        if (
-          !isRequired(name) ||
-          !isRequired(email) ||
-          !isRequired(password) ||
-          !isRequired(confirmPassword) ||
-          !isRequired(birthDate)
-        ) {
-          return { success: false, error: "Preencha todos os campos." };
+        if (!token) {
+          set({ currentUser: null, hasHydrated: true });
+          return;
         }
 
-        if (!isValidEmail(normalizedEmail)) {
-          return { success: false, error: "Informe um e-mail válido." };
+        try {
+          const result = await apiRequest<UserResponse>("/auth/me", { token });
+          set({ currentUser: result.user });
+        } catch {
+          set({ token: null, currentUser: null });
+        } finally {
+          set({ hasHydrated: true });
         }
-
-        if (password !== confirmPassword) {
-          return { success: false, error: "As senhas não coincidem." };
-        }
-
-        const emailAlreadyExists = get().users.some(
-          (user) => user.email === normalizedEmail
-        );
-
-        if (emailAlreadyExists) {
-          return { success: false, error: "Este e-mail já está cadastrado." };
-        }
-
-        const newUser: User = {
-          id: Date.now().toString(),
-          name: name.trim(),
-          email: normalizedEmail,
-          password,
-          birthDate: birthDate.trim(),
-        };
-
-        set((state) => ({
-          users: [...state.users, newUser],
-        }));
-
-        return { success: true };
       },
 
-      signin: ({ email, password }) => {
-        const normalizedEmail = normalizeEmail(email);
+      signup: async (data) => {
+        set({ isLoading: true });
 
-        if (!isRequired(email) || !isRequired(password)) {
-          return { success: false, error: "Informe e-mail e senha." };
+        try {
+          await apiRequest<UserResponse>("/auth/signup", {
+            method: "POST",
+            body: data,
+          });
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: getErrorMessage(error) };
+        } finally {
+          set({ isLoading: false });
         }
+      },
 
-        const user = get().users.find(
-          (storedUser) =>
-            storedUser.email === normalizedEmail && storedUser.password === password
-        );
+      signin: async (data) => {
+        set({ isLoading: true });
 
-        if (!user) {
-          return { success: false, error: "E-mail ou senha inválidos." };
+        try {
+          const result = await apiRequest<AuthResponse>("/auth/signin", {
+            method: "POST",
+            body: data,
+          });
+          set({ token: result.token, currentUser: result.user });
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: getErrorMessage(error) };
+        } finally {
+          set({ isLoading: false });
         }
-
-        set({ currentUser: user });
-        return { success: true };
       },
 
       signout: () => {
-        set({ currentUser: null });
+        set({ token: null, currentUser: null });
       },
 
-      getCurrentUser: () => {
-        const currentUser = get().currentUser;
-
-        if (!currentUser) {
-          return null;
-        }
-
-        return get().users.find((user) => user.id === currentUser.id) ?? currentUser;
-      },
-
-      setHasHydrated: (value) => {
-        set({ hasHydrated: value });
-      },
+      getCurrentUser: () => get().currentUser,
     }),
     {
       name: "@myeconomy:auth",
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
-        users: state.users,
+        token: state.token,
         currentUser: state.currentUser,
       }),
       onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+        state?.initialize();
       },
     }
   )
