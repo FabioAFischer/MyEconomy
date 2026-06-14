@@ -10,11 +10,12 @@ type Props = NativeStackScreenProps<AuthStackParamList, "SignIn">;
 
 export default function SignInScreen({ navigation }: Props) {
   const signin = useAuthStore((state) => state.signin);
+  const isLoading = useAuthStore((state) => state.isLoading);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  function handleSignin() {
-    const result = signin({ email, password });
+  async function handleSignin() {
+    const result = await signin({ email, password });
 
     if (!result.success) {
       Alert.alert("Não foi possível entrar", result.error);
@@ -50,7 +51,7 @@ export default function SignInScreen({ navigation }: Props) {
             secureTextEntry
             value={password}
           />
-          <Button title="Entrar" onPress={handleSignin} />
+          <Button title="Entrar" onPress={handleSignin} loading={isLoading} />
           <Button
             title="Criar conta"
             onPress={() => navigation.navigate("SignUp")}

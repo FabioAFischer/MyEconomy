@@ -11,19 +11,26 @@ type Props = NativeStackScreenProps<AuthStackParamList, "SignUp">;
 
 export default function SignUpScreen({ navigation }: Props) {
   const signup = useAuthStore((state) => state.signup);
+  const isLoading = useAuthStore((state) => state.isLoading);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [birthDate, setBirthDate] = useState("");
 
-  function handleSignup() {
+  async function handleSignup() {
     if (birthDate.trim().length > 0 && !validateBirthDate(birthDate)) {
       Alert.alert("Data inválida", "Use o formato DD/MM/AAAA.");
       return;
     }
 
-    const result = signup({ name, email, password, confirmPassword, birthDate });
+    const result = await signup({
+      name,
+      email,
+      password,
+      confirmPassword,
+      birthDate,
+    });
 
     if (!result.success) {
       Alert.alert("Não foi possível cadastrar", result.error);
@@ -83,7 +90,7 @@ export default function SignUpScreen({ navigation }: Props) {
             placeholder="DD/MM/AAAA"
             value={birthDate}
           />
-          <Button title="Cadastrar" onPress={handleSignup} />
+          <Button title="Cadastrar" onPress={handleSignup} loading={isLoading} />
           <Button
             title="Voltar para login"
             onPress={() => navigation.goBack()}

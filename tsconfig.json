@@ -8,5 +8,6 @@
     "**/*.ts",
     "**/*.tsx",
     "nativewind-env.d.ts"
-  ]
+  ],
+  "exclude": ["server"]
 }

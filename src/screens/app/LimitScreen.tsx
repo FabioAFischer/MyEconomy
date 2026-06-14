@@ -36,7 +36,7 @@ export default function LimitScreen() {
     setRepeatUntil(null);
   }
 
-  function handleSave() {
+  async function handleSave() {
     setValueError("");
     const parsed = parseFloat(value.replace(",", "."));
     if (!value || isNaN(parsed) || parsed <= 0) {
@@ -44,24 +44,34 @@ export default function LimitScreen() {
       return;
     }
 
+    let results;
+
     if (isEditing && existingLimit) {
-      updateMonthlyLimit(existingLimit.id, parsed);
+      results = [await updateMonthlyLimit(existingLimit.id, parsed)];
     } else if (repeatUntil) {
-      getMonthRange(selectedMonth, repeatUntil).forEach((month) => {
-        const alreadyExists = monthlyLimits.some(
-          (l) => l.userId === user!.id && l.monthRef === month
-        );
-        if (!alreadyExists) {
-          addMonthlyLimit({ userId: user!.id, value: parsed, monthRef: month });
-        }
-      });
+      const months = getMonthRange(selectedMonth, repeatUntil).filter(
+        (month) =>
+          !monthlyLimits.some(
+            (limit) => limit.userId === user!.id && limit.monthRef === month
+          )
+      );
+      results = await Promise.all(
+        months.map((month) =>
+          addMonthlyLimit({ value: parsed, monthRef: month })
+        )
+      );
     } else {
-      addMonthlyLimit({
-        userId: user!.id,
-        value: parsed,
-        monthRef: selectedMonth,
-      });
+      results = [
+        await addMonthlyLimit({ value: parsed, monthRef: selectedMonth }),
+      ];
     }
+
+    const failure = results.find((result) => !result.success);
+    if (failure) {
+      Alert.alert("Não foi possível salvar", failure.error);
+      return;
+    }
+
     resetForm();
   }
 
@@ -82,8 +92,12 @@ export default function LimitScreen() {
         {
           text: "Excluir",
           style: "destructive",
-          onPress: () => {
-            deleteMonthlyLimit(existingLimit.id);
+          onPress: async () => {
+            const result = await deleteMonthlyLimit(existingLimit.id);
+            if (!result.success) {
+              Alert.alert("Não foi possível excluir", result.error);
+              return;
+            }
             resetForm();
           },
         },
