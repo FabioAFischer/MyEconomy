@@ -101,7 +101,12 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     );
     const limit = monthlyLimit?.value ?? null;
     const balance = limit === null ? null : limit - totalExpenses;
-    const progress = limit && limit > 0 ? Math.min(totalExpenses / limit, 1) : 0;
+    const progress =
+      limit && limit > 0
+        ? Math.min(totalExpenses / limit, 1)
+        : totalExpenses > 0
+          ? 1
+          : 0;
 
     return {
       monthRef,
