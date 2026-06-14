@@ -64,7 +64,7 @@ export default function HomeScreen() {
 
         <Card>
           <View className="mb-4 flex-row items-center justify-between">
-            <View>
+            <View className="flex-1 mr-3">
               <Text className="text-base font-semibold text-slate-950">
                 Uso do limite
               </Text>
