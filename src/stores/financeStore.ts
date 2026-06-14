@@ -7,7 +7,20 @@ type FinanceState = {
   expenses: Expense[];
   monthlyLimits: MonthlyLimit[];
   getMonthlySummary: (userId: string, monthRef: string) => MonthlySummary;
+  addExpense: (data: Omit<Expense, "id" | "createdAt">) => void;
+  updateExpense: (
+    id: string,
+    data: Partial<Pick<Expense, "description" | "value">>
+  ) => void;
+  deleteExpense: (id: string) => void;
+  addMonthlyLimit: (data: Omit<MonthlyLimit, "id" | "createdAt">) => void;
+  updateMonthlyLimit: (id: string, value: number) => void;
+  deleteMonthlyLimit: (id: string) => void;
 };
+
+function generateId(): string {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
 
 export const useFinanceStore = create<FinanceState>()(
   persist(
@@ -46,6 +59,54 @@ export const useFinanceStore = create<FinanceState>()(
               : "saved",
           expensesCount: expenses.length,
         };
+      },
+
+      addExpense: (data) => {
+        const expense: Expense = {
+          ...data,
+          id: generateId(),
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({ expenses: [...state.expenses, expense] }));
+      },
+
+      updateExpense: (id, data) => {
+        set((state) => ({
+          expenses: state.expenses.map((e) =>
+            e.id === id ? { ...e, ...data } : e
+          ),
+        }));
+      },
+
+      deleteExpense: (id) => {
+        set((state) => ({
+          expenses: state.expenses.filter((e) => e.id !== id),
+        }));
+      },
+
+      addMonthlyLimit: (data) => {
+        const limit: MonthlyLimit = {
+          ...data,
+          id: generateId(),
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          monthlyLimits: [...state.monthlyLimits, limit],
+        }));
+      },
+
+      updateMonthlyLimit: (id, value) => {
+        set((state) => ({
+          monthlyLimits: state.monthlyLimits.map((l) =>
+            l.id === id ? { ...l, value } : l
+          ),
+        }));
+      },
+
+      deleteMonthlyLimit: (id) => {
+        set((state) => ({
+          monthlyLimits: state.monthlyLimits.filter((l) => l.id !== id),
+        }));
       },
     }),
     {
