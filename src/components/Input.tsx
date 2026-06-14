@@ -15,7 +15,8 @@ type InputProps = TextInputProps & {
 
 export default function Input({ label, error, ...props }: InputProps) {
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const isPassword = Boolean(props.secureTextEntry);
+  const { secureTextEntry, ...textInputProps } = props;
+  const isPassword = Boolean(secureTextEntry);
 
   return (
     <View className="gap-2">
@@ -26,9 +27,10 @@ export default function Input({ label, error, ...props }: InputProps) {
         }`}
       >
         <TextInput
+          key={passwordVisible ? "visible" : "protected"}
           className="h-full flex-1 px-4 text-base text-slate-900"
           placeholderTextColor="#94a3b8"
-          {...props}
+          {...textInputProps}
           secureTextEntry={isPassword && !passwordVisible}
         />
         {isPassword ? (
