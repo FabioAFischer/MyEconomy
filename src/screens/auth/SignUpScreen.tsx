@@ -1,28 +1,65 @@
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Text, View } from "react-native";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Button from "../../components/Button";
 import Input from "../../components/Input";
 import { AuthStackParamList } from "../../navigation/AuthNavigator";
 import { useAuthStore } from "../../stores/authStore";
-import { validateBirthDate } from "../../utils/validators";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "SignUp">;
 
 export default function SignUpScreen({ navigation }: Props) {
   const signup = useAuthStore((state) => state.signup);
+  const isLoading = useAuthStore((state) => state.isLoading);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const [pickerDate, setPickerDate] = useState(new Date(2000, 0, 1));
+  const [showPicker, setShowPicker] = useState(false);
 
-  function handleSignup() {
-    if (birthDate.trim().length > 0 && !validateBirthDate(birthDate)) {
-      Alert.alert("Data inválida", "Use o formato DD/MM/AAAA.");
-      return;
+  function formatDate(date: Date): string {
+    const d = String(date.getDate()).padStart(2, "0");
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    return `${d}/${m}/${date.getFullYear()}`;
+  }
+
+  function onDateChange(event: DateTimePickerEvent, selected?: Date) {
+    if (Platform.OS === "android") {
+      setShowPicker(false);
+      if (event.type === "set" && selected) {
+        setPickerDate(selected);
+        setBirthDate(formatDate(selected));
+      }
+    } else {
+      if (selected) setPickerDate(selected);
     }
+  }
 
-    const result = signup({ name, email, password, birthDate });
+  function confirmIOSDate() {
+    setBirthDate(formatDate(pickerDate));
+    setShowPicker(false);
+  }
+
+  async function handleSignup() {
+    const result = await signup({
+      name,
+      email,
+      password,
+      confirmPassword,
+      birthDate,
+    });
 
     if (!result.success) {
       Alert.alert("Não foi possível cadastrar", result.error);
@@ -69,13 +106,49 @@ export default function SignUpScreen({ navigation }: Props) {
             value={password}
           />
           <Input
-            keyboardType="numbers-and-punctuation"
-            label="Data de nascimento"
-            onChangeText={setBirthDate}
-            placeholder="DD/MM/AAAA"
-            value={birthDate}
+            label="Confirmar senha"
+            onChangeText={setConfirmPassword}
+            placeholder="Repita a senha"
+            secureTextEntry
+            value={confirmPassword}
           />
-          <Button title="Cadastrar" onPress={handleSignup} />
+
+          <View className="gap-2">
+            <Text className="text-sm font-medium text-slate-700">
+              Data de nascimento
+            </Text>
+            <TouchableOpacity
+              className="h-12 rounded-lg border border-slate-300 bg-white px-4 justify-center"
+              activeOpacity={0.7}
+              onPress={() => setShowPicker(true)}
+            >
+              <Text
+                className={
+                  birthDate ? "text-base text-slate-900" : "text-base text-slate-400"
+                }
+              >
+                {birthDate || "DD/MM/AAAA"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {showPicker && (
+            <>
+              <DateTimePicker
+                value={pickerDate}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={onDateChange}
+                maximumDate={new Date()}
+                locale="pt-BR"
+              />
+              {Platform.OS === "ios" && (
+                <Button title="Confirmar data" onPress={confirmIOSDate} />
+              )}
+            </>
+          )}
+
+          <Button title="Cadastrar" onPress={handleSignup} loading={isLoading} />
           <Button
             title="Voltar para login"
             onPress={() => navigation.goBack()}
